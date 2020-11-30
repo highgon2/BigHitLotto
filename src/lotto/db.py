@@ -15,16 +15,27 @@ class Manager:
 
     def __open_file_db(self):
         with open(Manager.__db_file, 'r') as f:
+            is_read_error = 0
             line = f.readline()
             while line != '':
-                str_episode, str_numbers = line.split(':')
-                episode                  = int(str_episode)
-                numbers                  = list(map(int, str_numbers.replace('\n', '').split(',')))
+                try:
+                    str_episode, str_numbers = line.split(':')
+                    episode                  = int(str_episode)
+                    numbers                  = list(map(int, str_numbers.replace('\n', '').split(',')))
 
-                self.__last_episode = episode;
-                self.__lottery[episode]  = numbers
+                    self.__last_episode      = episode;
+                    self.__lottery[episode]  = numbers
+                    line = f.readline()
 
-                line = f.readline()
+                except ValueError:
+                    print('invaild record...')
+                    is_read_error = 1
+                    break
+
+        if is_read_error:
+            with open(Manager.__db_file, 'w') as f:
+                for episode, numbers in self.__lottery.items():    
+                    f.writelines(str(episode) + ':' + ','.join([str(n) for n in numbers]) + '\n')
 
     def __create_file_db(self, lottery):
         with open(Manager.__db_file, 'w') as f:
@@ -36,11 +47,10 @@ class Manager:
 
     def __update_file_db(self, episode, numbers):
         self.__lottery[episode] = numbers
-
         with open(Manager.__db_file, 'a') as f:
             f.writelines(str(episode) + ':' + ','.join([str(n) for n in numbers]) + '\n')
             self.__last_episode = episode
-        print('{} episode updated in DB'.format(episode))
+        # print('{} episode updated in DB'.format(episode))
 
     def create(self, lottery, mode=0):
         self.__mode = mode
@@ -68,11 +78,10 @@ class Manager:
         return self.__lottery
 
     def has_number_in_lottery(self, same_count, candidate_num, base_episode=0):
-        set1 = set(candidate_num)
         for episode, lottery in self.__lottery.items():
             if episode < base_episode: continue
 
-            inter_set = set1 & set(lottery)
+            inter_set = set(candidate_num) & set(lottery)
             if len(inter_set) >= same_count:
                 print('\tepisode = {:4d}, same_draw_numbers = {}'.format(episode, inter_set))
                 return True
@@ -98,16 +107,3 @@ class Manager:
             for num in numbers:
                 print('{:2d}'.format(num), end=', ')
             print('\b\b]')
-
-# if __name__ == '__main__':
-#     db = Manager()
-#     try:
-#         db.open(1)
-#     except FileNotFoundError:
-#         params = {
-#             1: [1, 2, 3, 4, 5, 6],
-#             2: [7, 8, 9, 10, 11, 12]
-#         }
-#         db.create(params, 1)
-
-#     db.print_lotto_numbers()
