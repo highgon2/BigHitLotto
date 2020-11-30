@@ -8,8 +8,11 @@ import tkinter.messagebox
 from lotto import *
 
 class BigHit:
+    __version = 0.01
+
     def __init__(self):
         self.__abort = 0
+        self.__is_loading = 0
 
         # Window Global Option
         self.__root = tkinter.Tk()
@@ -17,7 +20,8 @@ class BigHit:
         self.__root.resizable(0, 0)
         self.__root.geometry('600x410+100+100')
         self.__root.option_add('*Font', '맑은고딕 10')
-        self.__root.title('BigHit Lotto')
+        self.__root.title('BigHit Lotto version {}'.format(BigHit.__version))
+        self.__root.protocol('WM_DELETE_WINDOW', self.__remove_dialog)
 
         self.__str_range = tkinter.StringVar(self.__root, 10)
         self.__chb_optval1 = tkinter.IntVar(self.__root, 1)
@@ -42,9 +46,38 @@ class BigHit:
             self.__db.open(mode=1)
             
             if self.__db.last_episode != lottery.Episode.get_last_episode():
+                prog_value = tkinter.IntVar()
+
+                self.__dialog = tkinter.Toplevel(self.__root)
+                self.__dialog.resizable(0, 0)
+                self.__dialog.geometry('400x90')
+                self.__dialog.attributes('-topmost', 'true')
+                self.__dialog.title('Lottery DB')
+                self.__dialog.grab_set()
+                self.__dialog.transient(self.__root)
+                self.__dialog.protocol('WM_DELETE_WINDOW', self.__remove_dialog)
+
+                self.__lbl_load_info = tkinter.Label(self.__dialog, text='로또 DB 구성을 완료할 때까지 기다려주세요.')
+                self.__progressbar   = tkinter.ttk.Progressbar(self.__dialog, maximum=100, variable=prog_value)
+
+                self.__lbl_load_info.place(x=10, y=10)
+                self.__progressbar.place(x=10, y=45, width=380)
+
+                self.__is_loading = 1
                 for episode in range(self.__db.last_episode + 1, lottery.Episode.get_next_episode()):
+                    prog_value.set(100 * episode / lottery.Episode.get_last_episode())
                     numbers = lottery.Episode.request_lotto_number(episode)
                     self.__db.update(episode, numbers)
+
+                    if episode == lottery.Episode.get_last_episode():
+                        self.__lbl_load_info.config(text='로또 데이터를 모두 받았습니다.')
+                    else:
+                        self.__lbl_load_info.config(text='로또 {}회 정보를 받고 있습니다.'.format(episode))
+
+                    self.__root.update()
+                    if self.__abort: return False
+                self.__dialog.destroy()
+            self.__is_loading = 0
 
         except FileNotFoundError:
             msg_result = tkinter.messagebox.askyesno('데이터 생성', '로또 데이터를 생성 하시겠습니까?\n생성하지 않을 경우 프로그램이 종료됩니다.')
@@ -57,8 +90,10 @@ class BigHit:
         return True
 
     def __remove_dialog(self):
-        self.__abort = 1
-        if not self.__db.last_episode:
+        if self.__is_loading == 0:
+            self.__root.destroy()
+        else:
+            self.__abort = 1
             self.__root.destroy()
 
     def __draw_dialog(self):
@@ -86,7 +121,7 @@ class BigHit:
             prog_value.set(100 * i / lottery.Episode.get_last_episode())
 
             if i == lottery.Episode.get_last_episode():
-                self.__lbl_load_info.config(text='로또 모든 데이터를 받았습니다.')
+                self.__lbl_load_info.config(text='로또 데이터를 모두 받았습니다.')
             elif i >= 10:
                 self.__lbl_load_info.config(text='로또 {}회 정보를 받고 있습니다.'.format(i))
 
@@ -95,6 +130,7 @@ class BigHit:
         self.__db.create(lotto_list, 1)
 
         time.sleep(1)
+        self.__is_loading = 0
         self.__dialog.destroy()
         return True
 
@@ -229,8 +265,3 @@ class BigHit:
             
     def run(self):
         self.__root.mainloop()
-
-if __name__ == '__main__':
-    b = BigHit()
-    b.run()
-    
