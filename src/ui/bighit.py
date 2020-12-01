@@ -104,6 +104,7 @@ class BigHit:
         self.__dialog.geometry('400x90')
         self.__dialog.attributes('-topmost', 'true')
         self.__dialog.title('Lottery DB')
+        
         self.__dialog.grab_set()
         self.__dialog.transient(self.__root)
         self.__dialog.protocol('WM_DELETE_WINDOW', self.__remove_dialog)
@@ -113,8 +114,10 @@ class BigHit:
 
         self.__lbl_load_info.place(x=10, y=10)
         self.__progressbar.place(x=10, y=45, width=380)
+        self.__root.update()
 
         lotto_list = {}
+        self.__is_loading = 1
         for i in range(1, lottery.Episode.get_next_episode()):
             numbers = lottery.Episode.request_lotto_number(i)
             lotto_list[i] = numbers;
@@ -128,6 +131,7 @@ class BigHit:
             self.__root.update()
             if self.__abort: return False
         self.__db.create(lotto_list, 1)
+        self.__is_loading = 0
 
         time.sleep(1)
         self.__is_loading = 0
