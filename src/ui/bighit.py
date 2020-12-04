@@ -41,10 +41,15 @@ class BigHit:
             num += 1
 
     def __init_db(self):
-        try:
-            self.__db = db.Manager()
-            self.__db.open(mode=1)
-            
+        self.__db = db.Manager(1)
+        if not self.__db.open():
+            msg_result = tkinter.messagebox.askyesno('데이터 생성', '로또 데이터를 생성 하시겠습니까?\n생성하지 않을 경우 프로그램이 종료됩니다.')
+            if not msg_result:
+                self.__root.destroy()
+                return False
+            if not self.__draw_dialog():
+                return False
+        else:
             if self.__db.last_episode != lottery.Episode.get_last_episode():
                 prog_value = tkinter.IntVar()
 
@@ -62,6 +67,7 @@ class BigHit:
 
                 self.__lbl_load_info.place(x=10, y=10)
                 self.__progressbar.place(x=10, y=45, width=380)
+                self.__root.update()
 
                 self.__is_loading = 1
                 for episode in range(self.__db.last_episode + 1, lottery.Episode.get_next_episode()):
@@ -78,15 +84,6 @@ class BigHit:
                     if self.__abort: return False
                 self.__dialog.destroy()
             self.__is_loading = 0
-
-        except FileNotFoundError:
-            msg_result = tkinter.messagebox.askyesno('데이터 생성', '로또 데이터를 생성 하시겠습니까?\n생성하지 않을 경우 프로그램이 종료됩니다.')
-            if not msg_result:
-                self.__root.destroy()
-                return False
-            if not self.__draw_dialog():
-                return False
-        
         return True
 
     def __remove_dialog(self):
@@ -130,7 +127,7 @@ class BigHit:
 
             self.__root.update()
             if self.__abort: return False
-        self.__db.create(lotto_list, 1)
+        self.__db.create(lotto_list)
         self.__is_loading = 0
 
         time.sleep(1)
