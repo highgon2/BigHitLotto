@@ -1,81 +1,97 @@
-import os
+from abc import *
 
-class Manager:
-    '''
-    Lotto DB will use sqlite.
-    Currently, I use file system because I don't know sqlite
-    '''
+class DataBase(metaclass=ABCMeta):
+    @abstractmethod
+    def open(self, lottery):
+        pass
 
-    __db_file = 'winning_numbers.db'
+    @abstractmethod
+    def update(self, episode, numbers):
+        pass
 
-    def __init__(self):
-        self.__mode    = 0
-        self.__lottery = {}
-        self.__last_episode = 0
+    @property
+    @abstractmethod
+    def last_episode(self):
+        pass
 
-    def __open_file_db(self):
-        with open(Manager.__db_file, 'r') as f:
-            is_read_error = 0
-            line = f.readline()
-            while line != '':
-                try:
-                    str_episode, str_numbers = line.split(':')
-                    episode                  = int(str_episode)
-                    numbers                  = list(map(int, str_numbers.replace('\n', '').split(',')))
-
-                    self.__last_episode      = episode;
-                    self.__lottery[episode]  = numbers
-                    line = f.readline()
-
-                except ValueError:
-                    print('invaild record...')
-                    is_read_error = 1
-                    break
-
-        if is_read_error:
-            with open(Manager.__db_file, 'w') as f:
-                for episode, numbers in self.__lottery.items():    
-                    f.writelines(str(episode) + ':' + ','.join([str(n) for n in numbers]) + '\n')
-
-    def __create_file_db(self, lottery):
-        with open(Manager.__db_file, 'w') as f:
-            for episode, numbers in lottery.items():
-                self.__last_episode = episode
-                self.__lottery[episode] = numbers
-                f.writelines(str(episode) + ':' + ','.join([str(n) for n in numbers]) + '\n')
-            print('Lottery DB is created')
-
-    def __update_file_db(self, episode, numbers):
-        self.__lottery[episode] = numbers
-        with open(Manager.__db_file, 'a') as f:
-            f.writelines(str(episode) + ':' + ','.join([str(n) for n in numbers]) + '\n')
-            self.__last_episode = episode
-        # print('{} episode updated in DB'.format(episode))
-
-    def create(self, lottery, mode=0):
-        self.__mode = mode
-        if mode == 0: self.__create_db(lottery)
-        else:         self.__create_file_db(lottery)
-
-    def open(self, mode=0):
-        self.__mode = mode
-        if mode == 0: self.__open_db()
-        else:         self.__open_file_db()
+class SqlDB(DataBase):
+    __file_name = 'winning_numbers.db'
+    
+    def open(self, lottery):
+        pass
 
     def update(self, episode, numbers):
-        if episode in self.__lottery.keys():
-            raise ValueError('The round already exist in DB')
-        
-        if self.__mode == 0: self.__update_db(episode, numbers)
-        else:                self.__update_file_db(episode, numbers)
+        pass
+
+class FileDB(DataBase):
+    __file_name = 'winning_numbers.fdb'
+
+    def __init__(self):
+        self.__last_episode = 0
+        self.__file = open(FileDB.__file_name, 'a+')
+
+    def __del__(self):
+        if self.__file: self.__file.close()
+
+    def open(self, lottery):
+        if self.__file.tell() == 0:
+            return False
+
+        self.__file.seek(0)
+        for line in self.__file.readlines():
+            try:
+                str_epi, str_num = line.split(':')
+                episode          = int(str_epi)
+                numbers          = list(map(int, str_num.replace('\n', '').split(',')))
+                lottery[episode] = numbers
+                
+                self.__last_episode = episode
+            
+            except ValueError:
+                self.__file.truncate(0)
+                for epi, num in lottery.items():
+                    self.__file.writelines(str(epi) + ':' + ','.join([str(n) for n in num]) + '\n')
+                break
+        return True
+
+    def update(self, episode, numbers):
+        self.__file.writelines(str(episode) + ':' + ','.join([str(n) for n in numbers]) + '\n')
+        self.__file.flush()
+        self.__last_episode = episode
 
     @property
     def last_episode(self):
         return self.__last_episode
-    
+
+class Manager:
+    def __init__(self, mode=0):
+        self.__lottery = {}
+
+        if mode == 0: self.__mgr = SqlDB()
+        else:         self.__mgr = FileDB()
+
+    def open(self):
+        return self.__mgr.open(self.__lottery)
+
+    def create(self, lottery):
+        for episode, numbers in lottery.items():
+            self.__mgr.update(episode, numbers)
+            self.__lottery[episode] = numbers
+        print('Lottery DB is created')
+
+    def update(self, episode, numbers):
+        if episode in self.__lottery.keys():
+            raise ValueError('The episode already exist in DB')
+        self.__mgr.update(episode, numbers)
+        self.__lottery[episode] = numbers;
+
     @property
     def lottery_list(self):
         return self.__lottery
+
+    @property
+    def last_episode(self):
+        return self.__mgr.last_episode
 
     def has_number_in_lottery(self, same_count, candidate_num, base_episode=0):
         for episode, lottery in self.__lottery.items():
@@ -89,7 +105,7 @@ class Manager:
 
     def get_lottery_episode_string(self, episode):
         episode_string = ''
-        if episode > self.__last_episode:
+        if episode > self.__mgr.last_episode:
             return ''
 
         episode_string = '{:5d} : '.format(episode)

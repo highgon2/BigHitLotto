@@ -1,2 +1,4 @@
 .vscode/
 __pycache__/
+winning_numbers.db
+winning_numbers.fdb
