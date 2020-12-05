@@ -44,7 +44,7 @@ class Episode:
             for key, value in res.json().items():
                 if 'drwtNo' in key:
                     numbers.append(value)
-            numbers.sort()
+            numbers.append(res.json().get('bnusNo'))
         
         except Exception as e:
             print(e)

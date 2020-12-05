@@ -72,8 +72,11 @@ class BigHit:
                 self.__is_loading = 1
                 for episode in range(self.__db.last_episode + 1, lottery.Episode.get_next_episode()):
                     prog_value.set(100 * episode / lottery.Episode.get_last_episode())
-                    numbers = lottery.Episode.request_lotto_number(episode)
-                    self.__db.update(episode, numbers)
+                    numbers   = lottery.Episode.request_lotto_number(episode)
+                    bonus_num = numbers.pop()
+
+                    numbers.sort()
+                    self.__db.update(episode, numbers, bonus_num)
 
                     if episode == lottery.Episode.get_last_episode():
                         self.__lbl_load_info.config(text='로또 데이터를 모두 받았습니다.')
@@ -116,8 +119,11 @@ class BigHit:
         lotto_list = {}
         self.__is_loading = 1
         for i in range(1, lottery.Episode.get_next_episode()):
-            numbers = lottery.Episode.request_lotto_number(i)
-            lotto_list[i] = numbers;
+            numbers  = lottery.Episode.request_lotto_number(i)
+            bonus_no = numbers.pop()
+
+            numbers.sort()
+            lotto_list[i] = db.WinningNumber(numbers, bonus_no)
             prog_value.set(100 * i / lottery.Episode.get_last_episode())
 
             if i == lottery.Episode.get_last_episode():
